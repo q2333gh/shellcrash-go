@@ -1,9 +1,8 @@
-# ShellCrash Go 本地构建 / 容器构建说明（shellcrashgo）
+# ShellCrash Go 本地构建说明（shellcrashgo）
 
-本目录包含 **完整的 ShellCrash Go 重写代码**，以及用于构建 Docker 镜像的文件。
+本目录包含 **完整的 ShellCrash Go 重写代码**。
 
 - 你可以在本机直接使用 Go 工具链编译所有二进制；
-- 也可以选择用 `Dockerfile` 构建容器镜像。
 
 ---
 
@@ -131,103 +130,5 @@ cd shellcrashgo
 
 ---
 
-## 3. 使用 Docker 构建镜像
-
-- 一台支持 Docker 的 Linux / macOS / Windows（WSL2）环境  
-- 已安装：
-  - Docker（推荐带 `buildx` 插件，方便多架构构建）
-  - 可以访问 GitHub 或相关镜像源（Dockerfile 会在线下载内核与 s6-overlay）
-
-建议先确认 Docker 正常工作：
-
-```bash
-docker version
-docker info
-```
-
----
-
-## 3.1 准备构建上下文（ShellCrash.tar.gz）
-
-`Dockerfile` 需要一个 `ShellCrash.tar.gz` 作为安装包，构建时会被复制到镜像中：
-
-```dockerfile
-COPY ShellCrash.tar.gz /tmp/ShellCrash.tar.gz
-```
-
-你需要：
-
-1. 从 ShellCrash 项目的发布页或其它渠道获取 `ShellCrash.tar.gz` 安装包；  
-2. 将该文件放到 `shellcrashgo/` 目录下，与 `Dockerfile` 位于同一目录。
-
-最终目录结构示例：
-
-```text
-shellcrashgo/
-  ├─ Dockerfile
-  ├─ go.mod
-  ├─ install.sh
-  ├─ install_en.sh
-  ├─ version
-  └─ ShellCrash.tar.gz   # 需要你自己放进来
-```
-
----
-
-## 3.2 构建单架构 Docker 镜像
-
-在仓库根目录或 `shellcrashgo/` 目录下执行（推荐在 `shellcrashgo/` 目录里）：
-
-```bash
-cd shellcrashgo
-
-# 构建本地镜像，标签名可自行修改
-docker build -t shellcrash:local .
-```
-
-构建成功后，使用下面命令查看镜像是否存在：
-
-```bash
-docker images | grep shellcrash
-```
-
----
-
-## 3.3 使用 buildx 构建多架构镜像（可选）
-
-如果你启用了 Docker BuildKit / buildx，并希望一次构建多种架构（如 `amd64`、`arm64`、`armv7`），可以使用：
-
-```bash
-cd shellcrashgo
-
-docker buildx build \
-  --platform linux/amd64,linux/arm64,linux/arm/v7 \
-  -t shellcrash:multi-arch \
-  .
-```
-
-> 如需直接推送到远程仓库，将 `shellcrash:multi-arch` 替换为你自己的仓库名，例如 `docker.io/yourname/shellcrash:tag`，并追加 `--push` 选项。
-
----
-
-## 3.4 运行容器（简单示例）
-
-> 注意：运行容器时会涉及网络转发、nftables / iproute2 等操作，**请在你自己的环境中谨慎使用，不要在不熟悉的生产环境直接执行**。
-
-最简示例（按需调整参数）：
-
-```bash
-docker run -d \
-  --name shellcrash \
-  --restart=unless-stopped \
-  --cap-add=NET_ADMIN \
-  --network host \
-  shellcrash:local
-```
-
-根据你的实际网络环境，可以挂载配置目录或增加更多参数；此处仅作为“镜像可用性”的简单验证。
-
----
-
-（上面本地 Go 编译流程已经涵盖了当前代码库的完整构建方式；如将来入口结构有较大调整，请同步更新本说明。）
+（上面本地 Go 编译与 Linux 打包流程已经涵盖了当前代码库的主要构建方式；如将来入口结构有较大调整，请同步更新本说明。）
 
