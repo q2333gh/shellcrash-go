@@ -1,0 +1,38 @@
+.VSCodeCounter/
+ref/
+# agents
+.ralph/
+
+p_doc/
+
+# user side release dependencies programs files.
+shellcrashgo/bin/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+.venv*/
+venv/
+env/
+
+# Go tooling / coverage
+*.test
+*.coverprofile
+coverage.*
+
+# shellcrashgo 本地构建输出（Go 二进制）
+shellcrashgo/build/
+shellcrashgo/dist/
+shellcrashgo/shellcrashgo-linux-amd64.tar.gz

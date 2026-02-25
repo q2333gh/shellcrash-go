@@ -1,0 +1,13 @@
+{
+  "active": true,
+  "iteration": 3,
+  "minIterations": 1,
+  "maxIterations": 10,
+  "completionPromise": "COMPLETE",
+  "tasksMode": false,
+  "taskPromise": "READY_FOR_NEXT_TASK",
+  "prompt": "Goal: Check whether `shellcrashgo` has finished rewriting the **core features** of `ref/ShellCrash-dev`. If a core feature is missing or different, fix it in Go. When all core features are either implemented or clearly marked as intentionally not implemented, stop.\n\nRules (always):\n- Follow `CLAUDE.md` / `AGENTS.md`: only do **file/logic level** work. Use temporary directories. Do not touch iptables/nftables/routes/DNS/system proxy or start real network daemons on this machine.\n\nPer iteration (one Ralph run = one feature):\n- Use your own judgment to look at `ref/ShellCrash-dev` and identify **one core feature or flow** (for example: main start/stop flow, key config generation, subscription conversion, important protocol/mode, etc.).\n- Create or update `docs/core_parity_progress.md`:\n  - Add an entry for this feature with:\n    - Short name and description\n    - Where it lives in `ref/ShellCrash-dev`\n    - Where it lives in `shellcrashgo` (or note that it is missing / intentionally not implemented)\n    - Status: `done`, `missing`, `partial`, or `intentionally not implemented`\n- If status is `missing` or `partial` and the feature should exist in Go:\n  - Change `shellcrashgo` code/tests so this feature matches the reference behavior as closely as reasonable, using only temp dirs and file-level checks (no real network changes).\n  - From `shellcrashgo` directory, run:\n    - `go build ./...`\n    - `go test ./...`\n  - Update the feature’s status in `docs/core_parity_progress.md` to the new correct value and add brief notes.\n- If the feature is intentionally not implemented in Go:\n  - Set status to `intentionally not implemented` and write a short reason in `docs/core_parity_progress.md`.\n\nCompletion for this whole task:\n- `docs/core_parity_progress.md` exists.\n- Every **core** feature you can reasonably identify in `ref/ShellCrash-dev` has an entry with status **not** `missing`/`partial` (only `done` or `intentionally not implemented`).\n- `shellcrashgo` builds and its tests pass: `cd shellcrashgo && go build ./... && go test ./...`.\n- All work respected the no-real-network rule above.\n\nOnly when all completion conditions are true, output: COMPLETE\n",
+  "startedAt": "2026-02-25T10:13:25.238Z",
+  "model": "",
+  "agent": "claude-code"
+}

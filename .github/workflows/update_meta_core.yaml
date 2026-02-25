@@ -1,0 +1,271 @@
+name: Build meta Core for ShellCrash
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag1:
+        description: 'project name of meta, such as MetaCubeX/mihomo'
+        required: true
+        type: string
+      tag2:
+        description: 'tag or branches of meta, such as v1.18.0 or Alpha'
+        required: true
+        type: string
+      tag3:
+        description: 'a new prerelease name (such as clash.meta.alpha) or only upload-artifact'
+        required: false
+        type: string
+      tag4:
+        description: 'git push as crashcore (such as meta) or only upload-artifact'
+        required: false
+        type: string
+      tag5:
+        description: 'build tags'
+        required: false
+        type: string
+      tag6:
+        description: 'ziptype(tar.gz|upx|gz)'
+        required: true
+        type: string
+        
+  workflow_call:
+    inputs:
+      tag1:
+        required: true
+        type: string
+      tag2:
+        required: true
+        type: string
+      tag3:
+        required: false
+        type: string
+      tag4:
+        required: false
+        type: string
+      tag5:
+        required: false
+        type: string
+      tag6:
+        required: true
+        type: string
+        
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{steps.go.outputs.version}}
+    steps:
+      - name: get latest go version
+        id: go
+        run: |
+          echo version=$(curl -s https://raw.githubusercontent.com/actions/go-versions/update-versions-manifest-file/versions-manifest.json | grep -oE '"version": "[0-9]{1}.[0-9]{1,}(.[0-9]{1,})?"' | head -1 | cut -d':' -f2 | sed 's/ //g; s/"//g') >> $GITHUB_OUTPUT
+  
+  meta:
+    runs-on: ubuntu-latest
+    needs: go
+    env:
+      REPO: ${{ inputs.tag1 }}
+      TAGS: ${{ inputs.tag5 }}
+    outputs:
+      version: ${{steps.meta.outputs.version}}
+      tags: ${{steps.meta.outputs.tags}}
+    steps:
+          
+      - name: get meta version
+        id: meta
+        run: |
+          version=${{ inputs.tag2 }}
+          [ "$version" = Alpha ] && version="Alpha-$(date +"%Y%m%d")"
+          echo version=$version >> $GITHUB_OUTPUT
+          if [ -z "$TAGS" ];then
+            echo tags='' >> $GITHUB_OUTPUT
+          else
+            echo tags=$TAGS >> $GITHUB_OUTPUT
+          fi    
+
+  cross:
+    strategy:
+      matrix:
+        include:
+          # linux
+          - name: linux-amd64
+            goos: linux
+            goarch: amd64
+            goamd64: v1
+          - name: linux-386
+            goos: linux
+            goarch: 386
+          - name: linux-arm64
+            goos: linux
+            goarch: arm64
+          - name: linux-armv5
+            goos: linux
+            goarch: arm
+            goarm: 5
+          - name: linux-armv7
+            goos: linux
+            goarch: arm
+            goarm: 7
+          - name: linux-mips-softfloat
+            goos: linux
+            goarch: mips
+            gomips: softfloat
+          - name: linux-mipsle-softfloat
+            goos: linux
+            goarch: mipsle
+            gomips: softfloat
+          - name: linux-mipsle-hardfloat
+            goos: linux
+            goarch: mipsle
+            gomips: hardfloat   
+
+      fail-fast: false
+    runs-on: ubuntu-latest
+    needs: 
+      - go
+      - meta
+    env:
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+      GOAMD64: ${{ matrix.goamd64 }}
+      GOARM: ${{ matrix.goarm }}
+      GOMIPS: ${{ matrix.gomips }}
+      CGO_ENABLED: 0
+      TAGS: ${{needs.meta.outputs.tags}}
+      VERSION: ${{needs.meta.outputs.version}}
+    steps:
+      - name: Checkout meta
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ inputs.tag1 }}
+          ref: ${{ inputs.tag2 }}
+          fetch-depth: 1
+          
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{needs.go.outputs.version}}
+        
+      - name: Update CA
+        run: |
+          sudo apt-get update && sudo apt-get install ca-certificates
+          sudo update-ca-certificates
+          cp -f /etc/ssl/certs/ca-certificates.crt component/ca/ca-certificates.crt
+          
+      - name: build core
+        id: build
+        run: |
+            go build -v -tags "${TAGS}" -o meta -trimpath -ldflags "-extldflags --static -X 'github.com/metacubex/mihomo/constant.Version=${VERSION}' -X 'github.com/metacubex/mihomo/constant.BuildTime=$(date)' -w -s -buildid="
+      
+      - name: Upload file to workspace
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: meta
+          overwrite: true
+          
+  push_to_git:
+    needs: 
+      - cross
+      - meta
+    runs-on: ubuntu-latest
+    env: 
+      RELEASE: ${{ inputs.tag3 }}
+      PUSHDIR: ${{ inputs.tag4 }}
+      ZIPTYPE: ${{ inputs.tag6 }}    
+      VERSION: ${{needs.meta.outputs.version}}
+    steps:
+      - name: Checkout ShellCrash
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+          ref: update
+          
+      - name: Download file from workspace
+        uses: actions/download-artifact@v4
+        with:
+          path: ./tmp
+          
+      - name: Zip core by upx
+        if: env.ZIPTYPE == 'upx'
+        run: |   
+          for upxv in 3.94 3.96 5.1.0;do
+            wget https://github.com/upx/upx/releases/download/v$upxv/upx-$upxv-amd64_linux.tar.xz
+            tar xf upx-$upxv-amd64_linux.tar.xz
+          done
+          for arch in amd64 armv5 armv7 arm64 386 mips-softfloat mipsle-hardfloat mipsle-softfloat;do
+            [ ! -f ./tmp/linux-${arch}/meta ] && continue
+            mv -f ./tmp/linux-${arch}/meta ./tmp/clash-linux-${arch}.upx
+            chmod +x ./tmp/clash-linux-${arch}.upx
+            case "${arch}" in
+              armv5|mips* )
+                ./upx-3.94-amd64_linux/upx --no-lzma ./tmp/clash-linux-${arch}.upx
+              ;;
+              armv7|386)
+                ./upx-3.96-amd64_linux/upx --no-lzma ./tmp/clash-linux-${arch}.upx
+              ;;
+              *)
+                ./upx-5.1.0-amd64_linux/upx ./tmp/clash-linux-${arch}.upx
+              ;;
+            esac
+          done
+          rm -rf upx-*
+         
+      - name: Zip core by tar
+        if: env.ZIPTYPE == 'tar.gz'
+        run: |      
+          for arch in amd64 armv5 armv7 arm64 386 mips-softfloat mipsle-hardfloat mipsle-softfloat;do
+            [ ! -f ./tmp/linux-${arch}/meta ] && continue
+            mv -f ./tmp/linux-${arch}/meta ./tmp/CrashCore
+            chmod +x ./tmp/CrashCore
+            tar --no-same-owner -zcvf ./tmp/clash-linux-${arch}.tar.gz -C ./tmp CrashCore
+          done
+          
+      - name: Zip core by gz
+        if: env.ZIPTYPE == 'gz'
+        run: |        
+          for arch in amd64 armv5 armv7 arm64 386 mips-softfloat mipsle-hardfloat mipsle-softfloat;do
+            [ ! -f ./tmp/linux-${arch}/meta ] && continue
+            mv -f ./tmp/linux-${arch}/meta ./tmp/clash-linux-${arch}
+            chmod +x ./tmp/clash-linux-${arch}
+            gzip ./tmp/clash-linux-${arch}
+          done
+                    
+      - name: Commit and push
+        if: ${{ env.PUSHDIR != '' }}
+        run: |
+          [ "${{ inputs.tag1 }}" = MetaCubeX/mihomo ] && crashcore='meta'
+          mkdir -p ./bin/${crashcore}
+          mv -f ./tmp/clash-linux-* ./bin/${crashcore}/
+          rm -fr ./tmp
+          [ "${{ inputs.tag6 }}" = tar.gz ] && sed -i "s/${crashcore}_v=.*/${crashcore}_v=${VERSION}/" ./bin/version
+          git config --global user.email "github-actions[bot]@users.noreply.github.com" && git config --global user.name "github-actions[bot]"
+          git add . && git commit -m "更新${crashcore}内核至${VERSION}" || exit 0
+          git push
+          #刷新cdn缓存
+          sleep 60
+          find "bin/${crashcore}" -type f | while read -r file; do
+            curl -s "https://purge.jsdelivr.net/gh/juewuy/ShellClash@update/${file#bin/}" || true
+          done
+          curl -s https://purge.jsdelivr.net/gh/juewuy/ShellClash@update/bin/version  || true
+          
+      - name: Create Release and Upload Release Asset
+        if: ${{ env.RELEASE != '' && env.PUSHDIR == '' }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ inputs.tag3 }}
+          name: ${{ inputs.tag3 }}
+          body: "The ${{env.VERSION}} version of ${{ inputs.tag1 }} \n这是${{ inputs.tag1 }}的${{env.VERSION}}版本内核文件\nhttps://github.com/${{ inputs.tag1 }}/releases \nOnly support for ShellCrash\n仅适配ShellCrash项目"
+          draft: false
+          prerelease: true
+          files: |
+            ./tmp/clash*.tar.gz 
+          
+      - name: Cleanup Workflow
+        uses: Mattraks/delete-workflow-runs@main
+        with:
+          retain_days: 1
+          keep_minimum_runs: 2      
+
+
+

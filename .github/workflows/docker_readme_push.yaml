@@ -1,0 +1,29 @@
+name: Update Docker Hub Description (disabled)
+
+# 已临时禁用 Docker Hub README 更新流程，如需恢复：
+# 1. 删除 jobs.update-readme.if: false 这一行
+# 2. 确认 DOCKERHUB_USERNAME / DOCKERHUB_TOKEN 等机密已正确配置
+
+on:
+  push:
+    paths:
+      - 'docker/README.md'
+  workflow_dispatch:
+
+jobs:
+  update-readme:
+    if: false  # disable Docker Hub description update in current dev setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout。
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/shellcrash
+          readme-filepath: ./docker/README.md

@@ -1,0 +1,67 @@
+name: ShellCrash Go Linux Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: '目标架构（当前仅支持 linux-amd64）'
+        required: false
+        default: linux-amd64
+
+jobs:
+  build-linux-amd64:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: shellcrashgo/go.mod
+
+      - name: Build Go binaries (linux-amd64)
+        working-directory: shellcrashgo
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 0
+        run: |
+          # 统一使用 build/bin 作为 Go 构建输出目录，避免和仓库根 bin 冲突
+          mkdir -p build/bin
+          for d in ./cmd/*; do
+            name=$(basename "$d")
+            echo "building $name"
+            go build -trimpath -ldflags="-s -w" -o "build/bin/$name" "$d"
+          done
+
+      - name: Prepare linux package
+        run: |
+          set -e
+          DIST_ROOT="dist/shellcrashgo-linux-amd64"
+          rm -rf dist
+          mkdir -p "$DIST_ROOT"
+
+          # 核心：Go 二进制（来自统一的 shellcrashgo/build/bin）
+          cp -a shellcrashgo/build/bin "$DIST_ROOT/"
+
+          # 入口脚本与文档
+          if [ -f shellcrashgo/run_linux.sh ]; then
+            cp shellcrashgo/run_linux.sh "$DIST_ROOT/"
+          fi
+          if [ -f shellcrashgo/README.md ]; then
+            cp shellcrashgo/README.md "$DIST_ROOT/"
+          fi
+
+          # 打成单一 tar.gz，便于用户侧“傻瓜式”下载解压
+          tar -C dist -zcvf shellcrashgo-linux-amd64.tar.gz shellcrashgo-linux-amd64
+
+      - name: Upload linux package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: shellcrashgo-linux-amd64
+          path: shellcrashgo-linux-amd64.tar.gz
+

@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  shellclash:
+    image: juewuy/shellcrash:latest
+    container_name: shellcrash
+    networks:
+      macvlan_lan:
+        ipv4_address: 192.168.31.222
+    cap_add:
+      - SYS_ADMIN
+      - NET_ADMIN
+      - NET_RAW
+    devices:
+      - "/dev/net/tun:/dev/net/tun"
+    sysctls:
+      - net.ipv4.ip_forward: 1
+      # - net.ipv6.conf.all.forwarding=1
+    volumes:
+      - shellcrash_configs:/etc/ShellCrash/configs:rw
+    restart: unless-stopped
+    
+volumes:
+  shellcrash_configs:
+  
+networks:
+  macvlan_lan:
+    name: macvlan_lan
+    driver: macvlan
+    driver_opts:
+      parent: eth0
+    ipam:
+      config:
+        - subnet: 192.168.31.0/24
+          gateway: 192.168.31.1
