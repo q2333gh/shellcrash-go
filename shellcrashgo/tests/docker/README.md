@@ -8,7 +8,7 @@
 
 ```bash
 cd shellcrashgo
-./tests/run_dist_in_container.sh
+./tests/docker/run_dist_in_container.sh
 ```
 
 脚本会自动完成：

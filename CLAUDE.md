@@ -12,7 +12,8 @@
 - **任何会改 iptables/nftables/路由的操作，一律不要在本机直接执行**  
   - 如果必须做“真流量 / 真路由”测试，请：  
     - 放到 Docker 容器、独立 network namespace，或专用测试路由器 / R2S 上执行；  
-    - 在这些隔离环境内随意修改网络规则，不要在本机默认 network namespace 里做实验。
+    - 在这些隔离环境内随意修改网络规则，不要在本机默认 network namespace 里做实验。  
+    - AI / Agent 如需自测，只能使用**短生命周期的受限 Docker 容器**（默认 bridge 网络），严禁使用 `--net=host`、`--privileged`、`--cap-add=NET_ADMIN` 等会暴露宿主网络栈的参数。
 
 - **禁止事项（本机开发机环境）**  
   - 不要在本机直接运行会持久修改网络栈的 ShellCrash 启动脚本或 init 脚本。  

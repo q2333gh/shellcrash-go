@@ -9,7 +9,8 @@ set -euo pipefail
 # - Leaves the container running so you can exec into it
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# ROOT_DIR 指向 shellcrashgo 根目录
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 DIST_ROOT="${DIST_ROOT:-"$ROOT_DIR/dist/shellcrashgo-linux-amd64"}"
 IMAGE="${IMAGE:-debian:stable-slim}"
